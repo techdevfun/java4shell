@@ -74,7 +74,7 @@ Flags:
 
 Facts checked ${CHECKED_AT}: fixed Oracle builds 17.0.21.1, 21.0.13.1,
 25.0.5.1, 27.0.1.1, 8u513-perf. No exploitation in the wild reported as
-of ${CHECKED_AT}; no public PoC.`);
+of ${CHECKED_AT}; Calif published a safe trigger-only reproducer, no weaponised public exploit.`);
 }
 
 interface GlobalOpts {

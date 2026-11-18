@@ -53,7 +53,7 @@ export const EXPLAIN_TOPICS: Record<string, string[]> = {
     "Disclosed 17/11/2026 by Calif (researcher Quang Luong); fixed the same day by Oracle (November 2026 CPU) and the OpenJDK project.",
     "CVSS 4.0: 9.2 Critical (Calif). CVSS 3.1: 8.1 High (Oracle). Both numbers, always.",
     "Trigger, as published: a 65-byte crafted Base64 input (64 'A' characters + '=') makes the decoder write 62 bytes past its heap output buffer.",
-    "No exploitation in the wild reported as of 18/11/2026; no public PoC; Calif is holding back its per-product exploits. Not in CISA KEV as of 18/11/2026.",
+    "No exploitation in the wild reported as of 18/11/2026; Calif published a safe trigger-only reproducer, not a weaponised exploit; the per-product exploits are withheld. Not in CISA KEV as of 18/11/2026.",
     "Sources: calif.io/java4shell (200, 18/11/2026), openjdk.org vulnerability advisories (200), CISA alert 17/11/2026 (200), Oracle November 2026 CPU.",
   ],
   EXPOSED: [

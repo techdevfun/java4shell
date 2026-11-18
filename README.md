@@ -14,7 +14,7 @@ The flaw is in the runtime, not in any library. A dependency scan of `pom.xml` o
 
 `java4shell scan` checks all three, per install, with a CI gate. No CVE database, no network, no exploit code. It never runs the crashing input against a live JVM.
 
-As of 18/11/2026 there are no reports of exploitation in the wild, no public PoC, and the CVE is not in the CISA KEV catalog. This tool does not claim otherwise.
+As of 18/11/2026 there are no reports of exploitation in the wild, and the CVE is not in the CISA KEV catalog. Calif published a safe trigger-only reproducer; no weaponised public exploit exists, and the per-product exploits are withheld. This tool does not claim otherwise.
 
 ## Demo
 
@@ -115,7 +115,7 @@ The repo CI runs on Node 20.x and 22.x: build, lint, unit + e2e tests, live smok
 ## Roadmap
 
 - Windows CPU flag reading without `--cpuinfo` (WMIC / PowerShell).
-- Direct read of the live My-filters equivalent: JVM flags from running processes (`jcmd <pid> VM.flags`).
+- JVM flags from running processes (`jcmd <pid> VM.flags`).
 - Fleet mode: run `scan` over SSH hosts and merge the JSON reports.
 - SBOM / container-image mode: read JDK versions from image layers (still condition-based: image version + host CPU at run time).
 

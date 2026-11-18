@@ -221,7 +221,7 @@ test("e2e: explain CVE prints both CVSS scores", async () => {
   assert.equal(r.code, 0);
   assert.match(r.stdout, /9\.2/);
   assert.match(r.stdout, /8\.1/);
-  assert.match(r.stdout, /no public PoC/);
+  assert.match(r.stdout, /safe trigger-only reproducer/);
 });
 
 test("e2e: init writes a valid config", async (t) => {
