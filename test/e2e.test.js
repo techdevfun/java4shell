@@ -149,18 +149,32 @@ test("e2e: check --json shape", async (t) => {
   assert.equal(data.installs[0].version, "17.0.21");
 });
 
-test("e2e: scan fleet of three fixtures exits 1 with counts", async (t) => {
+test("e2e: scan fleet of three fixtures reports each verdict", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "java4shell-e2e-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const vuln = await fixtureJdk(root, "temurin-17", TEMURIN_17_0_21);
   const fixed = await fixtureJdk(root, "oracle-17-fixed", ORACLE_17_FIXED);
   const old = await fixtureJdk(root, "temurin-11", TEMURIN_11);
   const cpu = await fixtureCpu(root, "cpuinfo-vbmi.txt", CPU_VBMI);
-  const r = await cli(["scan", "--dirs", vuln, fixed, old, "--cpuinfo", cpu]);
+  // --json + filter by home: a CI runner may have its own system JDKs
+  // under /usr/lib/jvm, so exact fleet counts are not asserted here.
+  const r = await cli([
+    "scan",
+    "--dirs",
+    vuln,
+    fixed,
+    old,
+    "--cpuinfo",
+    cpu,
+    "--json",
+  ]);
   assert.equal(r.code, 1);
-  assert.match(r.stdout, /EXPOSED 1/);
-  assert.match(r.stdout, /SAFE 2/);
-  assert.match(r.stdout, /installs 3/);
+  const data = JSON.parse(r.stdout);
+  const byHome = new Map(data.installs.map((i) => [i.home, i]));
+  assert.equal(byHome.get(vuln).verdict, "EXPOSED");
+  assert.equal(byHome.get(fixed).verdict, "SAFE");
+  assert.equal(byHome.get(old).verdict, "SAFE");
+  assert.equal(data.cve, "CVE-2026-114938");
 });
 
 test("e2e: decode-scan finds sites in source and reports REVIEW", async (t) => {
