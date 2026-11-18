@@ -1,0 +1,83 @@
+# java4shell demo - real CLI output on fixture JDKs
+# (fake java binaries print RECORDED -version outputs from
+#  examples/; cpuinfo fixtures are in examples/; the fleet
+#  below is synthetic, the version strings are recorded)
+
+$ java4shell scan --dirs temurin-17-vuln oracle-17-fixed temurin-11-safe --cpuinfo cpuinfo-vbmi.txt
+jdk home                                     version      cpu vbmi  intrinsics verdict
+----------------------------------------------------------------------------------------------------
+/tmp/java4shell-demo/fleet/temurin-17-vuln   17.0.21      all 4     on         EXPOSED
+  patch: affected range (17.0.21 < 17.0.21.1)
+  deciding: version + CPU + intrinsics all line up
+  - 17.0.21 is in the affected range (fixed build is 17.0.21.1)
+  - CPU has all four flags: avx512f, avx512bw, avx512vbmi, bmi2
+  - Base64 intrinsics are on (default)
+/tmp/java4shell-demo/fleet/oracle-17-fixed   17.0.21.1    all 4     on         SAFE
+  patch: fixed build (17.0.21.1 >= 17.0.21.1)
+  deciding: fixed build
+  - 17.0.21.1 is at or above the fixed build for Java 17
+/tmp/java4shell-demo/fleet/temurin-11-safe   11.0.33      all 4     on         SAFE
+  patch: not affected (Java 11 has no AVX-512 Base64 intrinsic)
+  deciding: version not affected
+  - Java 11 has no AVX-512 Base64 intrinsic
+
+summary: EXPOSED 1 | AT-RISK 0 | SAFE 2 | UNKNOWN 0 | installs 3
+Scope: java4shell checks exposure conditions for CVE-2026-114938 only (JDK patch level + CPU AVX-512 VBMI + Base64 intrinsics). It does not prove exploitability and never runs exploit input. A SAFE verdict means these three conditions do not line up - not that the host is safe from every Java flaw.
+exit: 1
+
+$ java4shell check temurin-17-vuln --cpuinfo cpuinfo-vbmi.txt
+verdict: EXPOSED
+jdk: /tmp/java4shell-demo/fleet/temurin-17-vuln (check <jdk-dir>)
+version: 17.0.21 (Temurin-17.0.21+9)
+patch: affected range (17.0.21 < 17.0.21.1)
+cpu: arch x64, flags from /home/hatch/workspace/github-repo-factory/java4shell-build/examples/cpuinfo-vbmi.txt: all four present (avx512f, avx512bw, avx512vbmi, bmi2)
+intrinsics: on (JVM default, no disabling flag in environment)
+deciding: version + CPU + intrinsics all line up
+- 17.0.21 is in the affected range (fixed build is 17.0.21.1)
+- CPU has all four flags: avx512f, avx512bw, avx512vbmi, bmi2
+- Base64 intrinsics are on (default)
+Scope: java4shell checks exposure conditions for CVE-2026-114938 only (JDK patch level + CPU AVX-512 VBMI + Base64 intrinsics). It does not prove exploitability and never runs exploit input. A SAFE verdict means these three conditions do not line up - not that the host is safe from every Java flaw.
+exit: 1
+
+$ java4shell decode-scan sample-app
+decode-scan: 1 Base64 decode site(s) in /tmp/java4shell-demo/sample-app
+  REVIEW Auth.java:8 - return Base64.getDecoder().decode(header);
+REVIEW only: a decode site reachable from untrusted input is a candidate, never proof of exploitability.
+exit: 1
+
+$ java4shell playbook
+First-hour playbook for CVE-2026-114938 (Java4Shell), checked 2026-11-18:
+
+1. Find every JDK, not just the system one
+  Run `java4shell scan` on each host. Bundled runtimes inside apps, containers and appliances count: Keycloak, Jenkins, Jira and Confluence often ship their own JDK, and `java -version` on PATH will not see it.
+
+2. Patch internet-facing pre-auth apps first
+  Calif demonstrated pre-auth RCE on default configs of Keycloak, Jira, Confluence, JFrog Artifactory, Jenkins and PingFederate. Patch those hosts first, then Kafka, Solr, Elasticsearch, Gerrit and Spinnaker (post-auth in the Calif demo). Fixed Oracle builds: 17.0.21.1, 21.0.13.1, 25.0.5.1, 27.0.1.1, 8u513-perf. Confirm the exact fixed build in your vendor advisory: Corretto 17.0.21.1.2 carries the fix; Temurin 17.0.21+9 does not.
+
+3. Where patching must wait, switch the fast path off
+  Add `-XX:-UseBASE64Intrinsics` to the JVM flags of the service (or `-XX:UseAVX=2`, which also disables the AVX-512 path) and restart the JVM. This is a mitigation, not a fix: patch as soon as the vendor build is available.
+
+4. Verify, do not assume
+  Re-run `java4shell scan` after patching or flagging: the verdict must move to SAFE with the deciding condition named (fixed build, or mitigation flag). Also confirm the flag is in the running process arguments, not only in a config file that no launcher reads.
+
+5. Check the CPU before declaring a host safe
+  A host is only safe by CPU when it lacks one of avx512f, avx512bw, avx512vbmi or bmi2. Check the host the JVM runs on, not the container image: pass --cpuinfo with the host cpuinfo when scanning from inside a container.
+
+6. Do NOT probe with the crashing input
+  Do not send the malformed Base64 string to a live JVM to see if it crashes. The trigger is a heap out-of-bounds write: a probe can corrupt a running service. Decide exposure from version + CPU + flags, which is what this tool does.
+
+7. Watch for exploitation reports
+  As of 18/11/2026 there are no reports of exploitation in the wild and the CVE is not in the CISA KEV catalog. That can change quickly after disclosure: re-check the CISA alert and your vendor advisory before closing the incident.
+
+
+# Mitigation: add -XX:-UseBASE64Intrinsics to the JVM flags, restart
+$ java4shell check temurin-17-vuln --cpuinfo cpuinfo-vbmi.txt --jvm-flags jvm.flags
+verdict: SAFE
+jdk: /tmp/java4shell-demo/fleet/temurin-17-vuln (check <jdk-dir>)
+version: 17.0.21 (Temurin-17.0.21+9)
+patch: affected range (17.0.21 < 17.0.21.1)
+cpu: arch x64, flags from /home/hatch/workspace/github-repo-factory/java4shell-build/examples/cpuinfo-vbmi.txt: all four present (avx512f, avx512bw, avx512vbmi, bmi2)
+intrinsics: off (-XX:-UseBASE64Intrinsics) (/tmp/java4shell-demo/jvm.flags)
+deciding: mitigation flag -XX:-UseBASE64Intrinsics
+- Base64 intrinsics switched off by -XX:-UseBASE64Intrinsics (/tmp/java4shell-demo/jvm.flags)
+Scope: java4shell checks exposure conditions for CVE-2026-114938 only (JDK patch level + CPU AVX-512 VBMI + Base64 intrinsics). It does not prove exploitability and never runs exploit input. A SAFE verdict means these three conditions do not line up - not that the host is safe from every Java flaw.
